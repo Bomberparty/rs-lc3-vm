@@ -98,7 +98,7 @@ impl VM {
         /* Destination Register (DR) */
         let r0 = ((instr >> 9) & 0x7) as u8;
         /* First operand (SR1) */
-        let r1 = ((instr >> 7) & 0x7) as u8;
+        let r1 = ((instr >> 6) & 0x7) as u8;
         /* Immediate flag */
         let imm_flag = (instr >> 5) & 0x1 != 0;
 
