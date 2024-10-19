@@ -1,21 +1,19 @@
-pub const MEM_SIZE: u32 = 1 << 16;
+use rs_lc_3_vm::constants::MEM_SIZE;
 
 pub struct Mem([u16; MEM_SIZE as usize]);
 
-
 impl Mem {
-
     pub fn new() -> Self {
         Mem([0; MEM_SIZE as usize])
     }
-    
+
     #[inline]
-    pub fn get_mem(&mut self, addr: usize) -> u16 {
+    pub fn get_mem(&self, addr: usize) -> u16 {
         self.0[addr]
     }
 
     #[inline]
-    pub fn set_mem(&mut self, addr: usize, val: u16) -> () {
-        self.0[addr] = val
+    pub fn set_mem(&mut self, addr: usize, val: u16) {
+        self.0[addr] = val;
     }
 }
