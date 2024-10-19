@@ -169,6 +169,18 @@ impl VM {
         self.regs.r_progcount = self.regs.get_by_num(r1);
     }
 
+    fn op_jsr(&mut self, instr: u16) {
+        let long_flag = (instr >> 11) & 1;
+        self.regs.r7 = self.regs.r_progcount;
+        if long_flag != 0 {
+            let long_pc_offset = self.sign_extend(instr & 0x7FF, 11);
+            self.regs.r_progcount += long_pc_offset;
+        } else {
+            let r1 = ((instr >> 6) & 0x7) as u8;
+            self.regs.r_progcount = self.regs.get_by_num(r1);
+        }
+    }
+
     pub fn execute(&mut self, cmd: Command) {
         match cmd.opcode {
             Opcode::OpADD => self.op_add(cmd.value),
@@ -177,6 +189,7 @@ impl VM {
             Opcode::OpNOT => self.op_not(cmd.value),
             Opcode::OpBR => self.op_br(cmd.value),
             Opcode::OpJMP => self.op_jmp(cmd.value),
+            Opcode::OpJSR => self.op_jsr(cmd.value),
             _ => panic!("Usage of reserved Opcodes!"),
         }
     }
