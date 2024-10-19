@@ -29,6 +29,15 @@ pub enum Opcode {
     OpTRAP = 0xF, /* execute trap */
 }
 
+pub enum Trap {
+    TrapGetc = 0x20,  /* get character from keyboard, not echoed onto the terminal */
+    TrapOut = 0x21,   /* output a character */
+    TrapPuts = 0x22,  /* output a word string */
+    TrapIn = 0x23,    /* get character from keyboard, echoed onto the terminal */
+    TrapPutsp = 0x24, /* output a byte string */
+    TrapHalt = 0x25   /* halt the program */
+}
+
 pub enum Flags {
     FlPos = 0x1,
     FlZro = 0x2,
