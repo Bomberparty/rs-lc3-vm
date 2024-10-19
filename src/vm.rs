@@ -35,7 +35,21 @@ pub enum Trap {
     TrapPuts = 0x22,  /* output a word string */
     TrapIn = 0x23,    /* get character from keyboard, echoed onto the terminal */
     TrapPutsp = 0x24, /* output a byte string */
-    TrapHalt = 0x25   /* halt the program */
+    TrapHalt = 0x25,  /* halt the program */
+}
+
+impl Trap {
+    fn get_by_num(value: u16) -> Trap {
+        match value {
+            0x20 => Trap::TrapGetc,
+            0x21 => Trap::TrapOut,
+            0x22 => Trap::TrapPuts,
+            0x23 => Trap::TrapIn,
+            0x24 => Trap::TrapPutsp,
+            0x25 => Trap::TrapHalt,
+            _ => panic!("Incorrect trap routine number!"),
+        }
+    }
 }
 
 pub enum Flags {
@@ -231,14 +245,31 @@ impl VM {
     fn op_sti(&mut self, instr: u16) {
         let r0 = ((instr >> 9) & 0x7) as u8;
         let pc_offset = self.sign_extend(instr & 0x1FF, 9);
-        self.memory.set_mem(self.memory.get_mem((self.regs.r_progcount + pc_offset) as usize) as usize, self.regs.get_by_num(r0));
+        let mem_addr = self
+            .memory
+            .get_mem((self.regs.r_progcount + pc_offset) as usize) as usize;
+        self.memory.set_mem(mem_addr, self.regs.get_by_num(r0));
     }
 
     fn op_str(&mut self, instr: u16) {
         let r0 = ((instr >> 9) & 0x7) as u8;
         let r1 = ((instr >> 6) & 0x7) as u8;
         let offset = self.sign_extend(instr & 0x3F, 6);
-        self.memory.set_mem((self.regs.get_by_num(r1) + offset) as usize, self.regs.get_by_num(r1));
+        self.memory.set_mem(
+            (self.regs.get_by_num(r1) + offset) as usize,
+            self.regs.get_by_num(r1),
+        );
+    }
+
+    fn op_trap(&mut self, instr: u16) {
+        match Trap::get_by_num(instr & 0xFF) {
+            Trap::TrapGetc => (),
+            Trap::TrapHalt => (),
+            Trap::TrapIn => (),
+            Trap::TrapOut => (),
+            Trap::TrapPuts => (),
+            Trap::TrapPutsp => (),
+        }
     }
 
     pub fn execute(&mut self, cmd: Command) {
