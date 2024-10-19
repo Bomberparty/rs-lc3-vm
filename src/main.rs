@@ -1,7 +1,7 @@
-use rs_lc_3_vm::vm::*;
+use rs_lc_3_vm::vm::VM;
 
 fn main() {
     let mut vm = VM::new();
-    vm.regs.r_cond = Flags::FlZro as u16;
-    vm.regs.r_progcount = PC_START;
+    vm.load_image("path/to/your/binary/image.obj").unwrap();
+    vm.run();
 }
