@@ -155,12 +155,28 @@ impl VM {
         self.update_flags(r0);
     }
 
+    fn op_br(&mut self, instr: u16) {
+        let pc_offset = self.sign_extend(instr & 0x1FF, 9);
+        let cond_flag = (instr >> 9) & 0x7;
+        if cond_flag & self.regs.r_cond != 0 {
+            self.regs.r_progcount += pc_offset;
+        }
+    }
+
+    fn op_jmp(&mut self, instr: u16) {
+        /* Also handles RET since RET happens whenever R1 is 7 */
+        let r1 = ((instr >> 6) & 0x7) as u8;
+        self.regs.r_progcount = self.regs.get_by_num(r1);
+    }
+
     pub fn execute(&mut self, cmd: Command) {
         match cmd.opcode {
             Opcode::OpADD => self.op_add(cmd.value),
             Opcode::OpLDI => self.op_ldi(cmd.value),
             Opcode::OpAND => self.op_and(cmd.value),
             Opcode::OpNOT => self.op_not(cmd.value),
+            Opcode::OpBR => self.op_br(cmd.value),
+            Opcode::OpJMP => self.op_jmp(cmd.value),
             _ => panic!("Usage of reserved Opcodes!"),
         }
     }
