@@ -49,6 +49,47 @@ impl Trap {
         // Flush the output
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
     }
+
+    pub fn trap_out(vm: &mut VM) {
+        let c = (vm.regs.r0 as u8) as char;
+        print!("{}", c);
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+    }
+
+    pub fn trap_in(vm: &mut VM) {
+        print!("Enter a character: ");
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        let c = input.chars().next().unwrap();
+
+        print!("{}", c);
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+
+        vm.regs.r0 = c as u16;
+        vm.update_flags(0x0);
+    }
+
+    pub fn trap_putsp(vm: &mut VM) {
+        let mut addr = vm.regs.r0 as usize;
+        let mut mem = vm.memory.get_mem(addr);
+
+        while mem != 0 {
+            let char1 = (mem & 0xFF) as u8 as char;
+            let char2 = ((mem >> 8) & 0xFF) as u8 as char;
+
+            print!("{}", char1);
+            if char2 != '\0' {
+                print!("{}", char2);
+            }
+
+            addr += 1;
+            mem = vm.memory.get_mem(addr);
+        }
+
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+    }
 }
 
 pub struct Command {
