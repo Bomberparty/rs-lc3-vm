@@ -90,6 +90,10 @@ impl Trap {
 
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
     }
+
+    pub fn halt() {
+        panic!("Normal Halt is not yet implemented due to complexity of the project!");
+    }
 }
 
 pub struct Command {
