@@ -83,7 +83,7 @@ impl VM {
         }
     }
 
-    pub fn update_flags(&mut self, reg_num: u8) {
+    fn update_flags(&mut self, reg_num: u8) {
         let reg_val = self.regs.get_by_num(reg_num);
         if reg_val == 0 {
             self.regs.r_cond = Flags::FlZro as u16;
@@ -117,7 +117,7 @@ impl VM {
 
     fn op_ldi(&mut self, instr: u16) {
         /* destination register (DR) */
-        let r0: u16 = (instr >> 9) & 0x7;
+        let r0 = ((instr >> 9) & 0x7) as u8;
         /* PCOffset9 */
         let pc_offset: u16 = self.sign_extend(instr & 0x1F, 9);
 
@@ -126,7 +126,8 @@ impl VM {
             .get_mem((self.regs.r_progcount + pc_offset) as usize);
 
         self.regs
-            .set_by_num(r0 as u8, self.memory.get_mem(ptr as usize));
+            .set_by_num(r0, self.memory.get_mem(ptr as usize));
+        self.update_flags(r0);
     }
 
     fn op_and(&mut self, instr: u16) {
@@ -143,6 +144,15 @@ impl VM {
             self.regs
                 .set_by_num(r0, self.regs.get_by_num(r1) & (instr & 0x7));
         }
+        self.update_flags(r0);
+    }
+
+    fn op_not(&mut self, instr: u16) {
+        let r0 = ((instr >> 9) & 0x7) as u8;
+        let r1 = ((instr >> 6) & 0x7) as u8;
+
+        self.regs.set_by_num(r0, !self.regs.get_by_num(r1));
+        self.update_flags(r0);
     }
 
     pub fn execute(&mut self, cmd: Command) {
@@ -150,6 +160,7 @@ impl VM {
             Opcode::OpADD => self.op_add(cmd.value),
             Opcode::OpLDI => self.op_ldi(cmd.value),
             Opcode::OpAND => self.op_and(cmd.value),
+            Opcode::OpNOT => self.op_not(cmd.value),
             _ => panic!("Usage of reserved Opcodes!"),
         }
     }
