@@ -1,4 +1,4 @@
-use crate::constants::REG_SIZE;
+use super::constants::REG_SIZE;
 
 pub struct Regs([u16; REG_SIZE as usize]);
 

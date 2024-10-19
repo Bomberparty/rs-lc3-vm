@@ -1,4 +1,4 @@
-use rs_lc_3_vm::constants::MEM_SIZE;
+use super::constants::MEM_SIZE;
 
 pub struct Mem([u16; MEM_SIZE as usize]);
 

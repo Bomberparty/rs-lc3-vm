@@ -1,4 +1,4 @@
-use crate::{
+use super::{
     constants::PC_START,
     enums::{Flags, Opcode, Trap},
     mem::Mem,
