@@ -1,140 +1,13 @@
-use core::panic;
-use std::u16;
+use crate::{
+    constants::PC_START,
+    enums::{Flags, Opcode, Trap},
+    mem::Mem,
+    regs::Regs,
+};
 
-pub use super::mem::*;
-pub use super::regs::*;
-pub use super::trap::*;
-
-pub const PC_START: u16 = 0x3000;
 pub struct VM {
     pub memory: Mem,
     pub regs: Regs,
-}
-
-pub enum Opcode {
-    OpBR = 0x0,   /* branch */
-    OpADD = 0x1,  /* add  */
-    OpLD = 0x2,   /* load */
-    OpST = 0x3,   /* store */
-    OpJSR = 0x4,  /* jump register */
-    OpAND = 0x5,  /* bitwise and */
-    OpLDR = 0x6,  /* load register */
-    OpSTR = 0x7,  /* store register */
-    OpRTI = 0x8,  /* unused */
-    OpNOT = 0x9,  /* bitwise not */
-    OpLDI = 0xA,  /* load indirect */
-    OpSTI = 0xB,  /* store indirect */
-    OpJMP = 0xC,  /* jump */
-    OpRES = 0xD,  /* reserved (unused) */
-    OpLEA = 0xE,  /* load effective address */
-    OpTRAP = 0xF, /* execute trap */
-}
-
-pub enum Flags {
-    FlPos = 0x1,
-    FlZro = 0x2,
-    FlNeg = 0x4,
-}
-
-impl Trap {
-    fn trap_puts(vm: &mut VM) {
-        let mut addr = vm.regs.r0 as usize;
-        let mut mem = vm.memory.get_mem(addr);
-        while mem != 0 {
-            print!("{}", (mem as u8) as char);
-            addr += 1;
-            mem = vm.memory.get_mem(addr);
-        }
-
-        // Flush the output
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-    }
-
-    pub fn trap_getc(vm: &mut VM) {
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let c = input.chars().next().unwrap();
-
-        vm.regs.r0 = c as u16;
-        vm.update_flags(0x0);
-    }
-
-    pub fn trap_out(vm: &mut VM) {
-        let c = (vm.regs.r0 as u8) as char;
-        print!("{}", c);
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-    }
-
-    pub fn trap_in(vm: &mut VM) {
-        print!("Enter a character: ");
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let c = input.chars().next().unwrap();
-
-        print!("{}", c);
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-
-        vm.regs.r0 = c as u16;
-        vm.update_flags(0x0);
-    }
-
-    pub fn trap_putsp(vm: &mut VM) {
-        let mut addr = vm.regs.r0 as usize;
-        let mut mem = vm.memory.get_mem(addr);
-
-        while mem != 0 {
-            let char1 = (mem & 0xFF) as u8 as char;
-            let char2 = ((mem >> 8) & 0xFF) as u8 as char;
-
-            print!("{}", char1);
-            if char2 != '\0' {
-                print!("{}", char2);
-            }
-
-            addr += 1;
-            mem = vm.memory.get_mem(addr);
-        }
-
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-    }
-
-    pub fn trap_halt() {
-        panic!("Normal Halt is not yet implemented due to complexity of the project!");
-    }
-}
-
-pub struct Command {
-    opcode: Opcode,
-    value: u16,
-}
-
-impl Command {
-    pub fn new(val: u16) -> Self {
-        Command {
-            opcode: match val >> 12 {
-                0x0 => Opcode::OpBR,
-                0x1 => Opcode::OpADD,
-                0x2 => Opcode::OpLD,
-                0x3 => Opcode::OpST,
-                0x4 => Opcode::OpJSR,
-                0x5 => Opcode::OpAND,
-                0x6 => Opcode::OpLDR,
-                0x7 => Opcode::OpSTR,
-                0x8 => Opcode::OpRTI,
-                0x9 => Opcode::OpNOT,
-                0xA => Opcode::OpLDI,
-                0xB => Opcode::OpSTI,
-                0xC => Opcode::OpJMP,
-                0xD => Opcode::OpRES,
-                0xE => Opcode::OpLEA,
-                0xF => Opcode::OpTRAP,
-                _ => panic!("Incorrect Opcode inside of the command constructor"),
-            },
-            value: val,
-        }
-    }
 }
 
 impl VM {
@@ -156,20 +29,17 @@ impl VM {
     fn update_flags(&mut self, reg_num: u8) {
         let reg_val = self.regs.get_by_num(reg_num);
         if reg_val == 0 {
-            self.regs.r_cond = Flags::FlZro as u16;
+            self.regs.set_by_num(8, Flags::FlZro as u16);
         } else if (reg_val >> 15) == 1 {
-            self.regs.r_cond = Flags::FlNeg as u16;
+            self.regs.set_by_num(8, Flags::FlNeg as u16);
         } else {
-            self.regs.r_cond = Flags::FlPos as u16;
+            self.regs.set_by_num(8, Flags::FlPos as u16);
         }
     }
 
     fn op_add(&mut self, instr: u16) {
-        /* Destination Register (DR) */
         let r0 = ((instr >> 9) & 0x7) as u8;
-        /* First operand (SR1) */
         let r1 = ((instr >> 6) & 0x7) as u8;
-        /* Immediate flag */
         let imm_flag = (instr >> 5) & 0x1 != 0;
 
         if imm_flag {
@@ -186,15 +56,9 @@ impl VM {
     }
 
     fn op_ldi(&mut self, instr: u16) {
-        /* destination register (DR) */
         let r0 = ((instr >> 9) & 0x7) as u8;
-        /* PCOffset9 */
-        let pc_offset: u16 = self.sign_extend(instr & 0x1F, 9);
-
-        let ptr: u16 = self
-            .memory
-            .get_mem((self.regs.r_progcount + pc_offset) as usize);
-
+        let pc_offset = self.sign_extend(instr & 0x1FF, 9);
+        let ptr = self.memory.get_mem((self.regs.get_by_num(9) + pc_offset) as usize);
         self.regs.set_by_num(r0, self.memory.get_mem(ptr as usize));
         self.update_flags(r0);
     }
@@ -219,7 +83,6 @@ impl VM {
     fn op_not(&mut self, instr: u16) {
         let r0 = ((instr >> 9) & 0x7) as u8;
         let r1 = ((instr >> 6) & 0x7) as u8;
-
         self.regs.set_by_num(r0, !self.regs.get_by_num(r1));
         self.update_flags(r0);
     }
@@ -227,26 +90,25 @@ impl VM {
     fn op_br(&mut self, instr: u16) {
         let pc_offset = self.sign_extend(instr & 0x1FF, 9);
         let cond_flag = (instr >> 9) & 0x7;
-        if cond_flag & self.regs.r_cond != 0 {
-            self.regs.r_progcount += pc_offset;
+        if cond_flag & self.regs.get_by_num(8) != 0 {
+            self.regs.set_by_num(9, self.regs.get_by_num(9) + pc_offset);
         }
     }
 
     fn op_jmp(&mut self, instr: u16) {
-        /* Also handles RET since RET happens whenever R1 is 7 */
         let r1 = ((instr >> 6) & 0x7) as u8;
-        self.regs.r_progcount = self.regs.get_by_num(r1);
+        self.regs.set_by_num(9, self.regs.get_by_num(r1));
     }
 
     fn op_jsr(&mut self, instr: u16) {
         let long_flag = (instr >> 11) & 1;
-        self.regs.r7 = self.regs.r_progcount;
+        self.regs.set_by_num(7, self.regs.get_by_num(9));
         if long_flag != 0 {
             let long_pc_offset = self.sign_extend(instr & 0x7FF, 11);
-            self.regs.r_progcount += long_pc_offset;
+            self.regs.set_by_num(9, self.regs.get_by_num(9) + long_pc_offset);
         } else {
             let r1 = ((instr >> 6) & 0x7) as u8;
-            self.regs.r_progcount = self.regs.get_by_num(r1);
+            self.regs.set_by_num(9, self.regs.get_by_num(r1));
         }
     }
 
@@ -255,8 +117,7 @@ impl VM {
         let pc_offset = self.sign_extend(instr & 0x1FF, 9);
         self.regs.set_by_num(
             r0,
-            self.memory
-                .get_mem((self.regs.r_progcount + pc_offset) as usize),
+            self.memory.get_mem((self.regs.get_by_num(9) + pc_offset) as usize),
         );
         self.update_flags(r0);
     }
@@ -267,8 +128,7 @@ impl VM {
         let offset = self.sign_extend(instr & 0x3F, 6);
         self.regs.set_by_num(
             r0,
-            self.memory
-                .get_mem((self.regs.get_by_num(r1) + offset) as usize),
+            self.memory.get_mem((self.regs.get_by_num(r1) + offset) as usize),
         );
         self.update_flags(r0);
     }
@@ -276,7 +136,7 @@ impl VM {
     fn op_lea(&mut self, instr: u16) {
         let r0 = ((instr >> 9) & 0x7) as u8;
         let pc_offset = self.sign_extend(instr & 0x1FF, 9);
-        self.regs.set_by_num(r0, self.regs.r_progcount + pc_offset);
+        self.regs.set_by_num(r0, self.regs.get_by_num(9) + pc_offset);
         self.update_flags(r0);
     }
 
@@ -284,7 +144,7 @@ impl VM {
         let r0 = ((instr >> 9) & 0x7) as u8;
         let pc_offset = self.sign_extend(instr & 0x1FF, 9);
         self.memory.set_mem(
-            (self.regs.r_progcount + pc_offset) as usize,
+            (self.regs.get_by_num(9) + pc_offset) as usize,
             self.regs.get_by_num(r0),
         );
     }
@@ -294,7 +154,7 @@ impl VM {
         let pc_offset = self.sign_extend(instr & 0x1FF, 9);
         let mem_addr = self
             .memory
-            .get_mem((self.regs.r_progcount + pc_offset) as usize) as usize;
+            .get_mem((self.regs.get_by_num(9) + pc_offset) as usize) as usize;
         self.memory.set_mem(mem_addr, self.regs.get_by_num(r0));
     }
 
@@ -304,38 +164,141 @@ impl VM {
         let offset = self.sign_extend(instr & 0x3F, 6);
         self.memory.set_mem(
             (self.regs.get_by_num(r1) + offset) as usize,
-            self.regs.get_by_num(r1),
+            self.regs.get_by_num(r0),
         );
     }
 
     fn op_trap(&mut self, instr: u16) {
         match Trap::get_by_num(instr & 0xFF) {
-            Trap::TrapGetc => Trap::trap_getc(self),
-            Trap::TrapHalt => Trap::trap_halt(),
-            Trap::TrapIn => Trap::trap_in(self),
-            Trap::TrapOut => Trap::trap_out(self),
-            Trap::TrapPuts => Trap::trap_puts(self),
-            Trap::TrapPutsp => Trap::trap_putsp(self),
+            Trap::TrapGetc => self.trap_getc(),
+            Trap::TrapHalt => self.trap_halt(),
+            Trap::TrapIn => self.trap_in(),
+            Trap::TrapOut => self.trap_out(),
+            Trap::TrapPuts => self.trap_puts(),
+            Trap::TrapPutsp => self.trap_putsp(),
         }
     }
 
-    pub fn execute(&mut self, cmd: Command) {
-        match cmd.opcode {
-            Opcode::OpADD => self.op_add(cmd.value),
-            Opcode::OpLDI => self.op_ldi(cmd.value),
-            Opcode::OpAND => self.op_and(cmd.value),
-            Opcode::OpNOT => self.op_not(cmd.value),
-            Opcode::OpBR => self.op_br(cmd.value),
-            Opcode::OpJMP => self.op_jmp(cmd.value),
-            Opcode::OpJSR => self.op_jsr(cmd.value),
-            Opcode::OpLD => self.op_ld(cmd.value),
-            Opcode::OpLDR => self.op_ldr(cmd.value),
-            Opcode::OpLEA => self.op_lea(cmd.value),
-            Opcode::OpST => self.op_st(cmd.value),
-            Opcode::OpSTI => self.op_sti(cmd.value),
-            Opcode::OpSTR => self.op_str(cmd.value),
-            Opcode::OpTRAP => self.op_trap(cmd.value),
-            _ => panic!("Usage of reserved Opcodes!"),
+    fn trap_getc(&mut self) {
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        let c = input.chars().next().unwrap();
+        self.regs.set_by_num(0, c as u16);
+        self.update_flags(0);
+    }
+
+    fn trap_out(&mut self) {
+        let c = (self.regs.get_by_num(0) as u8) as char;
+        print!("{}", c);
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+    }
+
+    fn trap_puts(&mut self) {
+        let mut addr = self.regs.get_by_num(0) as usize;
+        let mut mem = self.memory.get_mem(addr);
+        while mem != 0 {
+            print!("{}", (mem as u8) as char);
+            addr += 1;
+            mem = self.memory.get_mem(addr);
+        }
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+    }
+
+    fn trap_in(&mut self) {
+        print!("Enter a character: ");
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        let c = input.chars().next().unwrap();
+
+        print!("{}", c);
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+
+        self.regs.set_by_num(0, c as u16);
+        self.update_flags(0);
+    }
+
+    fn trap_putsp(&mut self) {
+        let mut addr = self.regs.get_by_num(0) as usize;
+        let mut mem = self.memory.get_mem(addr);
+
+        while mem != 0 {
+            let char1 = (mem & 0xFF) as u8 as char;
+            let char2 = ((mem >> 8) & 0xFF) as u8 as char;
+
+            print!("{}", char1);
+            if char2 != '\0' {
+                print!("{}", char2);
+            }
+
+            addr += 1;
+            mem = self.memory.get_mem(addr);
+        }
+
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+    }
+
+    fn trap_halt(&self) {
+        panic!("Normal Halt is not yet implemented due to complexity of the project!");
+    }
+
+    pub fn execute(&mut self, instr: u16) {
+        match instr >> 12 {
+            0x0 => self.op_br(instr),
+            0x1 => self.op_add(instr),
+            0x2 => self.op_ld(instr),
+            0x3 => self.op_st(instr),
+            0x4 => self.op_jsr(instr),
+            0x5 => self.op_and(instr),
+            0x6 => self.op_ldr(instr),
+            0x7 => self.op_str(instr),
+            0x8 => self.op_rti(instr),
+            0x9 => self.op_not(instr),
+            0xA => self.op_ldi(instr),
+            0xB => self.op_sti(instr),
+            0xC => self.op_jmp(instr),
+            0xD => self.op_res(instr),
+            0xE => self.op_lea(instr),
+            0xF => self.op_trap(instr),
+            _ => panic!("Invalid opcode"),
+        }
+    }
+
+    fn op_rti(&self, _instr: u16) {
+        panic!("RTI is not implemented");
+    }
+
+    fn op_res(&self, _instr: u16) {
+        panic!("RES is not implemented");
+    }
+
+    pub fn load_image(&mut self, image_path: &str) -> std::io::Result<()> {
+        let mut file = std::fs::File::open(image_path)?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+
+        let mut address = 0;
+        for chunk in buffer.chunks(2) {
+            if chunk.len() == 2 {
+                let value = ((chunk[0] as u16) << 8) | (chunk[1] as u16);
+                self.memory.set_mem(address, value);
+            } else {
+                panic!("Invalid binary image format");
+            }
+            address += 1;
+        }
+
+        Ok(())
+    }
+
+    pub fn run(&mut self) {
+        self.regs.set_by_num(9, PC_START);
+
+        loop {
+            let instr = self.memory.get_mem(self.regs.get_by_num(9) as usize);
+            self.regs.set_by_num(9, self.regs.get_by_num(9) + 1);
+            self.execute(instr);
         }
     }
 }
