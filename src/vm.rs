@@ -36,6 +36,21 @@ pub enum Flags {
     FlNeg = 0x4,
 }
 
+impl Trap {
+    fn trap_puts(vm: &mut VM) {
+        let mut addr = vm.regs.r0 as usize;
+        let mut mem = vm.memory.get_mem(addr);
+        while mem != 0 {
+            print!("{}", (mem as u8) as char);
+            addr += 1;
+            mem = vm.memory.get_mem(addr);
+        }
+
+        // Flush the output
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+    }
+}
+
 pub struct Command {
     opcode: Opcode,
     value: u16,
