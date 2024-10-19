@@ -14,7 +14,7 @@ pub struct Regs {
 }
 
 impl Regs {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Regs {
             r0: 0x0,
             r1: 0x0,
