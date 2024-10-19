@@ -96,11 +96,13 @@ impl VM {
 
     pub fn op_add(&mut self, instr: u16) {
         /* Destination Register (DR) */
-        let r0: u8 = ((instr >> 9) & 0x7) as u8;
+        let r0 = ((instr >> 9) & 0x7) as u8;
         /* First operand (SR1) */
-        let r1: u8 = ((instr >> 7) & 0x7) as u8;
+        let r1 = ((instr >> 7) & 0x7) as u8;
+        /* Immediate flag */
+        let imm_flag = (instr >> 5) & 0x1 != 0;
 
-        if (instr >> 5) & 0x1 == 1 {
+        if imm_flag {
             self.regs.set_by_num(
                 r0,
                 self.regs.get_by_num(r1) + self.sign_extend(instr & 0x1F, 5),
@@ -127,10 +129,27 @@ impl VM {
             .set_by_num(r0 as u8, self.memory.get_mem(ptr as usize));
     }
 
+    pub fn op_and(&mut self, instr: u16) {
+        let r0 = ((instr >> 9) & 0x7) as u8;
+        let r1 = ((instr >> 6) & 0x7) as u8;
+        let imm_flag = ((instr >> 5) & 0x1) != 0;
+
+        if imm_flag {
+            self.regs.set_by_num(
+                r0,
+                self.regs.get_by_num(r1) & self.sign_extend(instr & 0x1F, 5),
+            );
+        } else {
+            self.regs
+                .set_by_num(r0, self.regs.get_by_num(r1) & (instr & 0x7));
+        }
+    }
+
     pub fn execute(&mut self, cmd: Command) {
         match cmd.opcode {
             Opcode::OpADD => self.op_add(cmd.value),
             Opcode::OpLDI => self.op_ldi(cmd.value),
+            Opcode::OpAND => self.op_and(cmd.value),
             _ => panic!("Usage of reserved Opcodes!"),
         }
     }
