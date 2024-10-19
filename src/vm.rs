@@ -1,6 +1,6 @@
 use super::{
     constants::PC_START,
-    enums::{Flags, Opcode, Trap},
+    enums::{Flags, Trap},
     mem::Mem,
     regs::Regs,
 };
