@@ -94,7 +94,7 @@ impl VM {
         }
     }
 
-    pub fn op_add(&mut self, instr: u16) {
+    fn op_add(&mut self, instr: u16) {
         /* Destination Register (DR) */
         let r0 = ((instr >> 9) & 0x7) as u8;
         /* First operand (SR1) */
@@ -115,7 +115,7 @@ impl VM {
         self.update_flags(r0);
     }
 
-    pub fn op_ldi(&mut self, instr: u16) {
+    fn op_ldi(&mut self, instr: u16) {
         /* destination register (DR) */
         let r0: u16 = (instr >> 9) & 0x7;
         /* PCOffset9 */
@@ -129,7 +129,7 @@ impl VM {
             .set_by_num(r0 as u8, self.memory.get_mem(ptr as usize));
     }
 
-    pub fn op_and(&mut self, instr: u16) {
+    fn op_and(&mut self, instr: u16) {
         let r0 = ((instr >> 9) & 0x7) as u8;
         let r1 = ((instr >> 6) & 0x7) as u8;
         let imm_flag = ((instr >> 5) & 0x1) != 0;
