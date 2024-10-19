@@ -31,3 +31,17 @@ pub enum Trap {
     TrapPutsp = 0x24, /* output a byte string */
     TrapHalt = 0x25,  /* halt the program */
 }
+
+impl Trap {
+    pub fn get_by_num(num: u16) -> Trap {
+        match num {
+            0x20 => Trap::TrapGetc,
+            0x21 => Trap::TrapHalt,
+            0x22 => Trap::TrapPuts,
+            0x23 => Trap::TrapIn,
+            0x24 => Trap::TrapPutsp,
+            0x25 => Trap::TrapHalt,
+            _ => panic!("Incorrect number of the trap routine!")
+        }
+    }
+}
