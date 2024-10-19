@@ -4,6 +4,7 @@ use super::{
     mem::Mem,
     regs::Regs,
 };
+use std::io::Read;
 
 pub struct VM {
     pub memory: Mem,
