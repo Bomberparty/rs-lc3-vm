@@ -50,6 +50,15 @@ impl Trap {
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
     }
 
+    pub fn trap_getc(vm: &mut VM) {
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        let c = input.chars().next().unwrap();
+
+        vm.regs.r0 = c as u16;
+        vm.update_flags(0x0);
+    }
+
     pub fn trap_out(vm: &mut VM) {
         let c = (vm.regs.r0 as u8) as char;
         print!("{}", c);
@@ -91,7 +100,7 @@ impl Trap {
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
     }
 
-    pub fn halt() {
+    pub fn trap_halt() {
         panic!("Normal Halt is not yet implemented due to complexity of the project!");
     }
 }
@@ -301,12 +310,12 @@ impl VM {
 
     fn op_trap(&mut self, instr: u16) {
         match Trap::get_by_num(instr & 0xFF) {
-            Trap::TrapGetc => (),
-            Trap::TrapHalt => (),
-            Trap::TrapIn => (),
-            Trap::TrapOut => (),
-            Trap::TrapPuts => (),
-            Trap::TrapPutsp => (),
+            Trap::TrapGetc => Trap::trap_getc(self),
+            Trap::TrapHalt => Trap::trap_halt(),
+            Trap::TrapIn => Trap::trap_in(self),
+            Trap::TrapOut => Trap::trap_out(self),
+            Trap::TrapPuts => Trap::trap_puts(self),
+            Trap::TrapPutsp => Trap::trap_putsp(self),
         }
     }
 
@@ -325,6 +334,7 @@ impl VM {
             Opcode::OpST => self.op_st(cmd.value),
             Opcode::OpSTI => self.op_sti(cmd.value),
             Opcode::OpSTR => self.op_str(cmd.value),
+            Opcode::OpTRAP => self.op_trap(cmd.value),
             _ => panic!("Usage of reserved Opcodes!"),
         }
     }
