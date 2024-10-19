@@ -225,6 +225,13 @@ impl VM {
         self.memory.set_mem(self.memory.get_mem((self.regs.r_progcount + pc_offset) as usize) as usize, self.regs.get_by_num(r0));
     }
 
+    fn op_str(&mut self, instr: u16) {
+        let r0 = ((instr >> 9) & 0x7) as u8;
+        let r1 = ((instr >> 6) & 0x7) as u8;
+        let offset = self.sign_extend(instr & 0x3F, 6);
+        self.memory.set_mem((self.regs.get_by_num(r1) + offset) as usize, self.regs.get_by_num(r1));
+    }
+
     pub fn execute(&mut self, cmd: Command) {
         match cmd.opcode {
             Opcode::OpADD => self.op_add(cmd.value),
@@ -239,6 +246,7 @@ impl VM {
             Opcode::OpLEA => self.op_lea(cmd.value),
             Opcode::OpST => self.op_st(cmd.value),
             Opcode::OpSTI => self.op_sti(cmd.value),
+            Opcode::OpSTR => self.op_str(cmd.value),
             _ => panic!("Usage of reserved Opcodes!"),
         }
     }
