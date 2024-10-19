@@ -1,16 +1,16 @@
 pub const REG_SIZE: u32 = 10;
 
 pub struct Regs {
-    r0: u16,
-    r1: u16,
-    r2: u16,
-    r3: u16,
-    r4: u16,
-    r5: u16,
-    r6: u16,
-    r7: u16,
-    r_cond: u16,
-    r_progcount: u16,
+    pub r0: u16,
+    pub r1: u16,
+    pub r2: u16,
+    pub r3: u16,
+    pub r4: u16,
+    pub r5: u16,
+    pub r6: u16,
+    pub r7: u16,
+    pub r_cond: u16,
+    pub r_progcount: u16,
 }
 
 impl Regs {
