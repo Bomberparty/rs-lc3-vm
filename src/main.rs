@@ -1,9 +1,6 @@
-mod command;
-mod vm;
-
 use std::fs::File;
 use std::io::{self, Read};
-use vm::VM;
+use rs_lc_3_vm::vm::VM;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
