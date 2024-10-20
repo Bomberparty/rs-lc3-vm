@@ -20,7 +20,7 @@ impl VM {
     }
 
     fn sign_extend(&self, value: u16, bit_count: u16) -> u16 {
-        if (value >> (bit_count - 1)) & 1 != 0 {
+        if (value >> (bit_count - 1)) != 0 {
             value | (0xFFFF << bit_count)
         } else {
             value
