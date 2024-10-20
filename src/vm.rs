@@ -57,12 +57,12 @@ impl VM {
 
             match command {
                 Command::ADDImm { dr, sr1, imm5 } => {
-                    self.registers[dr as usize] = self.registers[sr1 as usize] + imm5;
+                    self.registers[dr as usize] = self.registers[sr1 as usize].wrapping_add(imm5);
                     self.update_flags(self.registers[dr as usize]);
                 }
                 Command::ADDReg { dr, sr1, sr2 } => {
                     self.registers[dr as usize] =
-                        self.registers[sr1 as usize] + self.registers[sr2 as usize];
+                        self.registers[sr1 as usize].wrapping_add(self.registers[sr2 as usize]);
                     self.update_flags(self.registers[dr as usize]);
                 }
                 Command::ANDImm { dr, sr1, imm5 } => {
