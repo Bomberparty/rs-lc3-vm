@@ -19,7 +19,7 @@ fn main() -> io::Result<()> {
 
     let mut vm = VM::new();
     vm.load_image(&buffer)?;
-    vm.run(&buffer);
+    vm.run(&buffer)?;
 
     Ok(())
 }

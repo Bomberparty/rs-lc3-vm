@@ -1,26 +1,4 @@
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Opcode {
-    ADD,
-    AND,
-    BR,
-    JMP,
-    JSR,
-    JSRR,
-    LD,
-    LDI,
-    LDR,
-    LEA,
-    NOT,
-    RET,
-    RTI,
-    ST,
-    STI,
-    STR,
-    TRAP,
-    RES,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Register {
     R0,
     R1,
