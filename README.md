@@ -2,8 +2,8 @@
 
 This is my attempt to develop *kind of* Low-Level things using Rust. In particular, I wanted to build my own implementation of [LC3](https://en.wikipedia.org/wiki/Little_Computer_3) using [this article about creating a VM in C](https://www.jmeiners.com/lc3-vm/) as a guideline. 
 
-That kind of works, but there are a lot of unsafe coversions which rust kind of warns me about, but doesn't care at all, and that's why I've spent a whole day trying to make this, but didn't succeed. 
+The result is a working prototype with behavior similar to [this](https://wchargin.com/lc3web/) emulator. You can play around with it and try to optimize things, because I really didn't think that much about the code optimization and *rusty* things such as closures and iterators. My goal was to try and make this work.
 
-If you know how to solve this, please head over to the Issues and tell about the problems, other than buffer overflows and obviously, run with backtrace, so I can see what's wrong.
+**And it's working!** 
 
-Wish you the best, from brpxd
+However, there are some issues. Head over to the corresponding section to see them.
