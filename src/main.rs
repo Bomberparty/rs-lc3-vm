@@ -1,5 +1,8 @@
+mod vm;
+
 use std::fs::File;
 use std::io::{self, Read};
+use vm::VM;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -13,12 +16,9 @@ fn main() -> io::Result<()> {
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
 
-    for chunk in buffer.chunks(2) {
-        if chunk.len() == 2 {
-            let instruction = ((chunk[0] as u16) << 8) | chunk[1] as u16;
-            println!("{:04X}", instruction);
-        }
-    }
+    let mut vm = VM::new();
+    vm.load_image(&buffer)?;
+    vm.run();
 
     Ok(())
 }
