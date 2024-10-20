@@ -65,13 +65,22 @@ impl VM {
                         self.registers[sr1 as usize] + self.registers[sr2 as usize];
                     self.update_flags(self.registers[dr as usize]);
                 }
+                Command::ANDImm { dr, sr1, imm5 } => {
+                    self.registers[dr as usize] = self.registers[sr1 as usize] & imm5;
+                    self.update_flags(self.registers[dr as usize]);
+                }
+                Command::ANDReg { dr, sr1, sr2 } => {
+                    self.registers[dr as usize] =
+                        self.registers[sr1 as usize] & self.registers[sr2 as usize];
+                    self.update_flags(self.registers[dr as usize]);
+                }
                 Command::BR { flag, pc_offset9 } => {
                     if flag & self.flag != 0 {
                         pc = pc.wrapping_add_signed(pc_offset9).wrapping_add_signed(-1);
                     }
                 }
                 Command::JMP { base_r } => {
-                    pc = self.memory[self.registers[base_r as usize] as usize];
+                    pc = self.registers[base_r as usize];
                 }
                 Command::JSR { pc_offset11 } => {
                     self.registers[Register::R7 as usize] = pc;
@@ -102,9 +111,6 @@ impl VM {
                 }
                 Command::NOT { dr, sr } => {
                     self.registers[dr as usize] = !self.registers[sr as usize];
-                }
-                Command::RET => {
-                    pc = self.registers[Register::R7 as usize];
                 }
                 Command::ST { r, pc_offset9 } => {
                     self.memory[pc.wrapping_add_signed(pc_offset9) as usize] =

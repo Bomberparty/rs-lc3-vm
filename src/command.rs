@@ -66,7 +66,6 @@ pub enum Command {
         dr: Register,
         sr: Register,
     },
-    RET,
     RTI,
     ST {
         r: Register,
@@ -174,7 +173,6 @@ impl Command {
                 let sr = ((instruction >> 6) & 0x7).into();
                 Command::NOT { dr, sr }
             }
-            0xC => Command::RET,
             0x8 => Command::RTI,
             0x3 => {
                 let r = ((instruction >> 9) & 0x7).into();
