@@ -22,6 +22,10 @@ impl VM {
         let mut index = 2;
 
         while index + 1 < buffer.len() {
+            if start_address as usize >= self.memory.len() {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "Start address out of bounds"));
+            }
+
             let instruction = ((buffer[index] as u16) << 8) | buffer[index + 1] as u16;
             self.memory[start_address as usize] = instruction;
             start_address += 1;
@@ -35,6 +39,10 @@ impl VM {
         let mut pc = 0;
 
         loop {
+            if pc as usize >= self.memory.len() {
+                break; // Stop execution if PC goes out of bounds
+            }
+
             let instruction = self.memory[pc as usize];
             pc += 1;
 
