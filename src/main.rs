@@ -1,3 +1,4 @@
+mod command;
 mod vm;
 
 use std::fs::File;
