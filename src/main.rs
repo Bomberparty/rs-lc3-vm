@@ -1,6 +1,9 @@
+mod command;
+mod vm;
+
 use std::fs::File;
 use std::io::{self, Read};
-use rs_lc_3_vm::vm::VM;
+use vm::VM;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -16,7 +19,7 @@ fn main() -> io::Result<()> {
 
     let mut vm = VM::new();
     vm.load_image(&buffer)?;
-    vm.run();
+    vm.run(&buffer);
 
     Ok(())
 }

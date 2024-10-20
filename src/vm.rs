@@ -39,23 +39,16 @@ impl VM {
 
     pub fn run(&mut self, buffer: &[u8]) {
         let start_address = self.extract_start_address(buffer);
-        let mut pc = start_address; // Set the program counter to the starting address
+        let mut pc = start_address; 
 
         loop {
             if pc as usize >= self.memory.len() {
-                break; // Stop execution if PC goes out of bounds
+                break; 
             }
 
             let instruction = self.memory[pc as usize];
             let command = Command::from_u16(instruction);
-            pc += 1;
-
-            // Example: Print the instruction in hexadecimal format
-            if instruction != 0 {
-                println!("{:04X} {:?}", instruction, command);
-            }
-
-            // TODO: Implement the actual VM logic here
+            pc = (pc + 1)%u16::MAX;
         }
     }
 
