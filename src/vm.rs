@@ -49,7 +49,9 @@ impl VM {
             pc += 1;
 
             // Example: Print the instruction in hexadecimal format
-            println!("{:04X} {:?}", instruction, command);
+            if instruction != 0 {
+                println!("{:04X} {:?}", instruction, command);
+            }
 
             // TODO: Implement the actual VM logic here
         }
