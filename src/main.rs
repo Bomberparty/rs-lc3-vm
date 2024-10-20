@@ -1,25 +1,25 @@
-use rs_lc_3_vm::vm::VM;
-use clap::Parser;
+mod command;
+mod vm;
 
-#[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Args {
-    /// Path to the binary image file
-    #[clap(short, long)]
-    image: String,
-}
+use std::fs::File;
+use std::io::{self, Read};
+use vm::VM;
 
-fn main() {
-    let args = Args::parse();
-    let mut vm = VM::new();
-
-    match vm.load_image(&args.image) {
-        Ok(_) => {
-            println!("Loaded image from: {}", args.image);
-            vm.run();
-        }
-        Err(e) => {
-            eprintln!("Failed to load image: {}", e);
-        }
+fn main() -> io::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() != 2 {
+        eprintln!("Usage: {} <path_to_binary_image>", args[0]);
+        return Ok(());
     }
+
+    let image_path = &args[1];
+    let mut file = File::open(image_path)?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+
+    let mut vm = VM::new();
+    vm.load_image(&buffer)?;
+    vm.run(&buffer)?;
+
+    Ok(())
 }

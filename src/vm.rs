@@ -1,305 +1,200 @@
-use super::{
-    constants::PC_START,
-    enums::{Flags, Trap},
-    mem::Mem,
-    regs::Regs,
-};
-use std::io::Read;
+use crate::command::{Register, TrapVector};
+
+use super::command::Command;
+use std::io::{self, Read};
 
 pub struct VM {
-    pub memory: Mem,
-    pub regs: Regs,
+    registers: [u16; 8],
+    flag: u16,
+    memory: [u16; 65536],
 }
 
 impl VM {
     pub fn new() -> Self {
         VM {
-            memory: Mem::new(),
-            regs: Regs::new(),
+            registers: [0; 8],
+            flag: 0,
+            memory: [0; 65536],
         }
     }
 
-    fn sign_extend(&self, value: u16, bit_count: u16) -> u16 {
-        if (value >> (bit_count - 1)) != 0 {
-            value | (0xFFFF << bit_count)
-        } else {
-            value
-        }
-    }
-
-    fn update_flags(&mut self, reg_num: u8) {
-        let reg_val = self.regs.get_by_num(reg_num);
-        if reg_val == 0 {
-            self.regs.set_by_num(8, Flags::FlZro as u16);
-        } else if (reg_val >> 15) == 1 {
-            self.regs.set_by_num(8, Flags::FlNeg as u16);
-        } else {
-            self.regs.set_by_num(8, Flags::FlPos as u16);
-        }
-    }
-
-    fn op_add(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let r1 = ((instr >> 6) & 0x7) as u8;
-        let imm_flag = (instr >> 5) & 0x1 != 0;
-
-        if imm_flag {
-            self.regs.set_by_num(
-                r0,
-                self.regs.get_by_num(r1) + self.sign_extend(instr & 0x1F, 5),
-            );
-        } else {
-            self.regs
-                .set_by_num(r0, self.regs.get_by_num(r1) + (instr & 0x7));
+    pub fn load_image(&mut self, buffer: &[u8]) -> io::Result<()> {
+        if buffer.len() < 2 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "File too short"));
         }
 
-        self.update_flags(r0);
-    }
+        let start_address = self.extract_start_address(buffer);
+        let mut index = 2;
 
-    fn op_ldi(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let pc_offset = self.sign_extend(instr & 0x1FF, 9);
-        let ptr = self.memory.get_mem((self.regs.get_by_num(9) + pc_offset) as usize);
-        self.regs.set_by_num(r0, self.memory.get_mem(ptr as usize));
-        self.update_flags(r0);
-    }
-
-    fn op_and(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let r1 = ((instr >> 6) & 0x7) as u8;
-        let imm_flag = ((instr >> 5) & 0x1) != 0;
-
-        if imm_flag {
-            self.regs.set_by_num(
-                r0,
-                self.regs.get_by_num(r1) & self.sign_extend(instr & 0x1F, 5),
-            );
-        } else {
-            self.regs
-                .set_by_num(r0, self.regs.get_by_num(r1) & (instr & 0x7));
-        }
-        self.update_flags(r0);
-    }
-
-    fn op_not(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let r1 = ((instr >> 6) & 0x7) as u8;
-        self.regs.set_by_num(r0, !self.regs.get_by_num(r1));
-        self.update_flags(r0);
-    }
-
-    fn op_br(&mut self, instr: u16) {
-        let pc_offset = self.sign_extend(instr & 0x1FF, 9);
-        let cond_flag = (instr >> 9) & 0x7;
-        if cond_flag & self.regs.get_by_num(8) != 0 {
-            self.regs.set_by_num(9, self.regs.get_by_num(9) + pc_offset);
-        }
-    }
-
-    fn op_jmp(&mut self, instr: u16) {
-        let r1 = ((instr >> 6) & 0x7) as u8;
-        self.regs.set_by_num(9, self.regs.get_by_num(r1));
-    }
-
-    fn op_jsr(&mut self, instr: u16) {
-        let long_flag = (instr >> 11) & 1;
-        self.regs.set_by_num(7, self.regs.get_by_num(9));
-        if long_flag != 0 {
-            let long_pc_offset = self.sign_extend(instr & 0x7FF, 11);
-            self.regs.set_by_num(9, self.regs.get_by_num(9) + long_pc_offset);
-        } else {
-            let r1 = ((instr >> 6) & 0x7) as u8;
-            self.regs.set_by_num(9, self.regs.get_by_num(r1));
-        }
-    }
-
-    fn op_ld(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let pc_offset = self.sign_extend(instr & 0x1FF, 9);
-        self.regs.set_by_num(
-            r0,
-            self.memory.get_mem((self.regs.get_by_num(9) + pc_offset) as usize),
-        );
-        self.update_flags(r0);
-    }
-
-    fn op_ldr(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let r1 = ((instr >> 6) & 0x7) as u8;
-        let offset = self.sign_extend(instr & 0x3F, 6);
-        self.regs.set_by_num(
-            r0,
-            self.memory.get_mem((self.regs.get_by_num(r1) + offset) as usize),
-        );
-        self.update_flags(r0);
-    }
-
-    fn op_lea(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let pc_offset = self.sign_extend(instr & 0x1FF, 9);
-        self.regs.set_by_num(r0, self.regs.get_by_num(9) + pc_offset);
-        self.update_flags(r0);
-    }
-
-    fn op_st(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let pc_offset = self.sign_extend(instr & 0x1FF, 9);
-        self.memory.set_mem(
-            (self.regs.get_by_num(9) + pc_offset) as usize,
-            self.regs.get_by_num(r0),
-        );
-    }
-
-    fn op_sti(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let pc_offset = self.sign_extend(instr & 0x1FF, 9);
-        let mem_addr = self
-            .memory
-            .get_mem((self.regs.get_by_num(9) + pc_offset) as usize) as usize;
-        self.memory.set_mem(mem_addr, self.regs.get_by_num(r0));
-    }
-
-    fn op_str(&mut self, instr: u16) {
-        let r0 = ((instr >> 9) & 0x7) as u8;
-        let r1 = ((instr >> 6) & 0x7) as u8;
-        let offset = self.sign_extend(instr & 0x3F, 6);
-        self.memory.set_mem(
-            (self.regs.get_by_num(r1) + offset) as usize,
-            self.regs.get_by_num(r0),
-        );
-    }
-
-    fn op_trap(&mut self, instr: u16) {
-        match Trap::get_by_num(instr & 0xFF) {
-            Trap::TrapGetc => self.trap_getc(),
-            Trap::TrapHalt => self.trap_halt(),
-            Trap::TrapIn => self.trap_in(),
-            Trap::TrapOut => self.trap_out(),
-            Trap::TrapPuts => self.trap_puts(),
-            Trap::TrapPutsp => self.trap_putsp(),
-        }
-    }
-
-    fn trap_getc(&mut self) {
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let c = input.chars().next().unwrap();
-        self.regs.set_by_num(0, c as u16);
-        self.update_flags(0);
-    }
-
-    fn trap_out(&mut self) {
-        let c = (self.regs.get_by_num(0) as u8) as char;
-        print!("{}", c);
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-    }
-
-    fn trap_puts(&mut self) {
-        let mut addr = self.regs.get_by_num(0) as usize;
-        let mut mem = self.memory.get_mem(addr);
-        while mem != 0 {
-            print!("{}", (mem as u8) as char);
-            addr += 1;
-            mem = self.memory.get_mem(addr);
-        }
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-    }
-
-    fn trap_in(&mut self) {
-        print!("Enter a character: ");
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let c = input.chars().next().unwrap();
-
-        print!("{}", c);
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-
-        self.regs.set_by_num(0, c as u16);
-        self.update_flags(0);
-    }
-
-    fn trap_putsp(&mut self) {
-        let mut addr = self.regs.get_by_num(0) as usize;
-        let mut mem = self.memory.get_mem(addr);
-
-        while mem != 0 {
-            let char1 = (mem & 0xFF) as u8 as char;
-            let char2 = ((mem >> 8) & 0xFF) as u8 as char;
-
-            print!("{}", char1);
-            if char2 != '\0' {
-                print!("{}", char2);
+        while index + 1 < buffer.len() {
+            if start_address as usize + (index - 2) / 2 >= self.memory.len() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Start address out of bounds",
+                ));
             }
 
-            addr += 1;
-            mem = self.memory.get_mem(addr);
-        }
-
-        std::io::Write::flush(&mut std::io::stdout()).unwrap();
-    }
-
-    fn trap_halt(&self) {
-        panic!("Normal Halt is not yet implemented due to complexity of the project!");
-    }
-
-    pub fn execute(&mut self, instr: u16) {
-        match instr >> 12 {
-            0x0 => self.op_br(instr),
-            0x1 => self.op_add(instr),
-            0x2 => self.op_ld(instr),
-            0x3 => self.op_st(instr),
-            0x4 => self.op_jsr(instr),
-            0x5 => self.op_and(instr),
-            0x6 => self.op_ldr(instr),
-            0x7 => self.op_str(instr),
-            0x8 => self.op_rti(instr),
-            0x9 => self.op_not(instr),
-            0xA => self.op_ldi(instr),
-            0xB => self.op_sti(instr),
-            0xC => self.op_jmp(instr),
-            0xD => self.op_res(instr),
-            0xE => self.op_lea(instr),
-            0xF => self.op_trap(instr),
-            _ => panic!("Invalid opcode"),
-        }
-    }
-
-    fn op_rti(&self, _instr: u16) {
-        panic!("RTI is not implemented");
-    }
-
-    fn op_res(&self, _instr: u16) {
-        panic!("RES is not implemented");
-    }
-
-    pub fn load_image(&mut self, image_path: &str) -> std::io::Result<()> {
-        let mut file = std::fs::File::open(image_path)?;
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)?;
-
-        let mut address = 0;
-        for chunk in buffer.chunks(2) {
-            if chunk.len() == 2 {
-                let value = ((chunk[0] as u16) << 8) | (chunk[1] as u16);
-                self.memory.set_mem(address, value);
-            } else {
-                panic!("Invalid binary image format");
-            }
-            address += 1;
+            let instruction = ((buffer[index] as u16) << 8) | buffer[index + 1] as u16;
+            self.memory[start_address as usize + (index - 2) / 2] = instruction;
+            index += 2;
         }
 
         Ok(())
     }
 
-    pub fn run(&mut self) {
-        self.regs.set_by_num(9, PC_START);
+    pub fn run(&mut self, buffer: &[u8]) -> io::Result<()> {
+        let start_address = self.extract_start_address(buffer);
+        let mut pc = start_address;
 
         loop {
-            let instr = self.memory.get_mem(self.regs.get_by_num(9) as usize);
-            self.regs.set_by_num(9, self.regs.get_by_num(9) + 1);
-            self.execute(instr);
+            if pc as usize >= self.memory.len() {
+                break;
+            }
+
+            let instruction = self.memory[pc as usize];
+            let command = Command::from_u16(instruction);
+            pc = (pc + 1) % u16::MAX;
+
+            match command {
+                Command::ADDImm { dr, sr1, imm5 } => {
+                    self.registers[dr as usize] = self.registers[sr1 as usize] + imm5;
+                    self.update_flags(self.registers[dr as usize]);
+                }
+                Command::ADDReg { dr, sr1, sr2 } => {
+                    self.registers[dr as usize] =
+                        self.registers[sr1 as usize] + self.registers[sr2 as usize];
+                    self.update_flags(self.registers[dr as usize]);
+                }
+                Command::ANDImm { dr, sr1, imm5 } => {
+                    self.registers[dr as usize] = self.registers[sr1 as usize] & imm5;
+                    self.update_flags(self.registers[dr as usize]);
+                }
+                Command::ANDReg { dr, sr1, sr2 } => {
+                    self.registers[dr as usize] =
+                        self.registers[sr1 as usize] & self.registers[sr2 as usize];
+                    self.update_flags(self.registers[dr as usize]);
+                }
+                Command::BR { flag, pc_offset9 } => {
+                    if flag & self.flag != 0 {
+                        pc = pc.wrapping_add_signed(pc_offset9).wrapping_add_signed(-1);
+                    }
+                }
+                Command::JMP { base_r } => {
+                    pc = self.registers[base_r as usize];
+                }
+                Command::JSR { pc_offset11 } => {
+                    self.registers[Register::R7 as usize] = pc;
+                    pc = pc.wrapping_add_signed(pc_offset11);
+                }
+                Command::JSRR { base_r } => {
+                    self.registers[Register::R7 as usize] = pc;
+                    pc = self.registers[base_r as usize];
+                }
+                Command::LD { dr, pc_offset9 } => {
+                    self.registers[dr as usize] =
+                        self.memory[pc.wrapping_add_signed(pc_offset9) as usize];
+                }
+                Command::LDI { dr, pc_offset9 } => {
+                    self.registers[dr as usize] = self.memory
+                        [self.memory[pc.wrapping_add_signed(pc_offset9) as usize] as usize];
+                }
+                Command::LDR {
+                    dr,
+                    base_r,
+                    offset6,
+                } => {
+                    self.registers[dr as usize] = self.memory
+                        [(self.registers[base_r as usize].wrapping_add_signed(offset6)) as usize];
+                }
+                Command::LEA { dr, pc_offset9 } => {
+                    self.registers[dr as usize] = pc.wrapping_add_signed(pc_offset9);
+                }
+                Command::NOT { dr, sr } => {
+                    self.registers[dr as usize] = !self.registers[sr as usize];
+                }
+                Command::ST { r, pc_offset9 } => {
+                    self.memory[pc.wrapping_add_signed(pc_offset9) as usize] =
+                        self.registers[r as usize];
+                }
+                Command::STI { r, pc_offset9 } => {
+                    self.memory
+                        [self.memory[pc.wrapping_add_signed(pc_offset9) as usize] as usize] =
+                        self.registers[r as usize];
+                }
+                Command::STR {
+                    sr,
+                    base_r,
+                    offset6,
+                } => {
+                    self.memory
+                        [(self.registers[base_r as usize].wrapping_add_signed(offset6)) as usize] =
+                        self.registers[sr as usize];
+                }
+                Command::TRAP { trap_vec } => match trap_vec {
+                    TrapVector::GETC => {
+                        let mut buffer = [0u8; 1];
+                        io::stdin().read_exact(&mut buffer)?;
+                        self.registers[Register::R0 as usize] = buffer[0] as u16;
+                    }
+                    TrapVector::HALT => {
+                        println!("Halting the processor...");
+                        return Ok(());
+                    }
+                    TrapVector::IN => {
+                        print!("Enter the character: ");
+                        let mut buffer = [0u8; 1];
+                        io::stdin().read_exact(&mut buffer)?;
+                        self.registers[Register::R0 as usize] = buffer[0] as u16;
+                    }
+                    TrapVector::OUT => {
+                        print!("{}", self.registers[Register::R0 as usize] as u8 as char);
+                    }
+                    TrapVector::PUTS => {
+                        let slice = &self.memory[self.registers[Register::R0 as usize] as usize..];
+                        let string = self.u16_slice_to_string(slice);
+                        println!("{}", string);
+                    }
+                    TrapVector::PUTSP => {
+                        let slice = &self.memory[self.registers[Register::R0 as usize] as usize..];
+                        let string = self.u16_slice_to_string(slice);
+                        for byte in string.as_bytes() {
+                            print!("{:X}", byte);
+                        }
+                        println!("");
+                    }
+                },
+                _ => panic!("Wrong command used!"),
+            }
         }
+
+        Ok(())
+    }
+
+    fn extract_start_address(&self, buffer: &[u8]) -> u16 {
+        ((buffer[0] as u16) << 8) | buffer[1] as u16
+    }
+
+    fn update_flags(&mut self, value: u16) {
+        if value == 0 {
+            self.flag = 0x2; // FlZro
+        } else if value & 0x8000 != 0 {
+            self.flag = 0x4; // FlNeg
+        } else {
+            self.flag = 0x1; // FlPos
+        }
+    }
+
+    fn u16_slice_to_string(&self, slice: &[u16]) -> String {
+        let mut result = String::new();
+        for &value in slice {
+            if value == 0 {
+                break; // Null terminator found, stop processing
+            }
+            result.push(char::from_u32(value as u32).unwrap_or_else(|| {
+                // Handle invalid Unicode code points (optional)
+                '�'
+            }));
+        }
+        result
     }
 }
