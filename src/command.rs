@@ -34,17 +34,25 @@ pub enum Register {
 
 #[derive(Debug)]
 pub enum Command {
-    ADD {
+    ADDReg {
         dr: Register,
         sr1: Register,
-        imm_flag: bool,
-        sr2_or_imm5: u16,
+        sr2: Register,
     },
-    AND {
+    ADDImm {
         dr: Register,
         sr1: Register,
-        imm_flag: bool,
-        sr2_or_imm5: u16,
+        imm5: u16,
+    },
+    ANDReg {
+        dr: Register,
+        sr1: Register,
+        sr2: Register,
+    },
+    ANDImm {
+        dr: Register,
+        sr1: Register,
+        imm5: u16,
     },
     BR {
         flag: u16,
@@ -96,9 +104,19 @@ pub enum Command {
         offset6: i16,
     },
     TRAP {
-        trap_vec8: u8,
+        trap_vec: TrapVector,
     },
     RES,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TrapVector {
+    GETC,
+    OUT,
+    PUTS,
+    IN,
+    PUTSP,
+    HALT,
 }
 
 impl Command {
@@ -109,32 +127,24 @@ impl Command {
                 let dr = ((instruction >> 9) & 0x7).into();
                 let sr1 = ((instruction >> 6) & 0x7).into();
                 let imm_flag = (instruction & 0x20) != 0;
-                let sr2_or_imm5 = if imm_flag {
-                    (instruction & 0x1F) as u16
+                if imm_flag {
+                    let imm5 = (instruction & 0x1F) as u16;
+                    Command::ADDImm { dr, sr1, imm5 }
                 } else {
-                    ((instruction & 0x7) as u16).into()
-                };
-                Command::ADD {
-                    dr,
-                    sr1,
-                    imm_flag,
-                    sr2_or_imm5,
+                    let sr2 = ((instruction & 0x7) as u16).into();
+                    Command::ADDReg { dr, sr1, sr2 }
                 }
             }
             0x5 => {
                 let dr = ((instruction >> 9) & 0x7).into();
                 let sr1 = ((instruction >> 6) & 0x7).into();
                 let imm_flag = (instruction & 0x20) != 0;
-                let sr2_or_imm5 = if imm_flag {
-                    (instruction & 0x1F) as u16
+                if imm_flag {
+                    let imm5 = (instruction & 0x1F) as u16;
+                    Command::ANDImm { dr, sr1, imm5 }
                 } else {
-                    ((instruction & 0x7) as u16).into()
-                };
-                Command::AND {
-                    dr,
-                    sr1,
-                    imm_flag,
-                    sr2_or_imm5,
+                    let sr2 = ((instruction & 0x7) as u16).into();
+                    Command::ANDReg { dr, sr1, sr2 }
                 }
             }
             0x0 => {
@@ -147,12 +157,14 @@ impl Command {
                 Command::JMP { base_r }
             }
             0x4 => {
-                let pc_offset11 = ((instruction & 0x7FF) as i16).wrapping_shl(5) >> 5;
-                Command::JSR { pc_offset11 }
-            }
-            0x4 => {
-                let base_r = ((instruction >> 6) & 0x7).into();
-                Command::JSRR { base_r }
+                let jsr_flag = (instruction >> 11) & 0x1;
+                if jsr_flag == 1 {
+                    let pc_offset11 = ((instruction & 0x7FF) as i16).wrapping_shl(5) >> 5;
+                    Command::JSR { pc_offset11 }
+                } else {
+                    let base_r = ((instruction >> 6) & 0x7).into();
+                    Command::JSRR { base_r }
+                }
             }
             0x2 => {
                 let dr = ((instruction >> 9) & 0x7).into();
@@ -208,7 +220,16 @@ impl Command {
             }
             0xF => {
                 let trap_vec8 = (instruction & 0xFF) as u8;
-                Command::TRAP { trap_vec8 }
+                let trap_vec = match trap_vec8 {
+                    0x20 => TrapVector::GETC,
+                    0x21 => TrapVector::OUT,
+                    0x22 => TrapVector::PUTS,
+                    0x23 => TrapVector::IN,
+                    0x24 => TrapVector::PUTSP,
+                    0x25 => TrapVector::HALT,
+                    _ => panic!("Invalid trap vector"),
+                };
+                Command::TRAP { trap_vec }
             }
             _ => Command::RES,
         }
