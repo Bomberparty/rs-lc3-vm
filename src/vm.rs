@@ -18,35 +18,25 @@ impl VM {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "File too short"));
         }
 
-        let mut start_address = ((buffer[0] as u16) << 8) | buffer[1] as u16;
-        let mut index = 2;
+        let start_address = ((buffer[0] as u16) << 8) | buffer[1] as u16;
+        let instructions = buffer[2..].chunks_exact(2).map(|chunk| {
+            ((chunk[0] as u16) << 8) | chunk[1] as u16
+        });
 
-        while index + 1 < buffer.len() {
-            if start_address as usize >= self.memory.len() {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "Start address out of bounds"));
-            }
-
-            let instruction = ((buffer[index] as u16) << 8) | buffer[index + 1] as u16;
-            self.memory[start_address as usize] = instruction;
-            start_address += 1;
-            index += 2;
+        for (i, instruction) in instructions.enumerate() {
+            let address = (start_address as usize + i) % self.memory.len();
+            self.memory[address] = instruction;
         }
 
         Ok(())
     }
 
     pub fn run(&mut self) {
-        let mut pc = 0;
+        let instructions = self.memory.iter().enumerate().map(|(i, &instruction)| {
+            (i as u16, instruction)
+        });
 
-        loop {
-            if pc as usize >= self.memory.len() {
-                break; // Stop execution if PC goes out of bounds
-            }
-
-            let instruction = self.memory[pc as usize];
-            pc += 1;
-
-            // Example: Print the instruction in hexadecimal format
+        for (pc, instruction) in instructions {
             println!("{:04X}", instruction);
 
             // TODO: Implement the actual VM logic here
