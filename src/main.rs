@@ -15,8 +15,9 @@ fn main() -> io::Result<()> {
             arg!(-d --debug "Switch to a debug mode").required(false),
         ])
         .get_matches();
+    
     let image_path = matches.get_one::<String>("image").expect("image is required");
-    let debug_mode = matches.contains_id("debug");
+    let debug_mode = matches.get_one("debug").unwrap();
 
     let mut file = File::open(image_path)?;
     let mut buffer = Vec::new();
@@ -25,7 +26,7 @@ fn main() -> io::Result<()> {
     let mut vm = VM::new();
     vm.load_image(&buffer)?;
 
-    vm.run(&buffer ,debug_mode)?;
+    vm.run(&buffer , *debug_mode)?;
 
 
     Ok(())
