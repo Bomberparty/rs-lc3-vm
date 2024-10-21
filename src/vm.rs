@@ -181,7 +181,7 @@ impl VM {
                     TrapVector::PUTS => {
                         let slice = &self.memory[self.registers[Register::R0 as usize] as usize..];
                         let string = self.u16_slice_to_string(slice);
-                        println!("{}", string);
+                        print!("{}", string);
                     }
                     TrapVector::PUTSP => {
                         let slice = &self.memory[self.registers[Register::R0 as usize] as usize..];
