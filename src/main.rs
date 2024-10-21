@@ -25,11 +25,8 @@ fn main() -> io::Result<()> {
     let mut vm = VM::new();
     vm.load_image(&buffer)?;
 
-    if debug_mode {
-        vm.run(&buffer)?;
-    } else {
-        vm.run(&buffer)?;
-    }
+    vm.run(&buffer ,debug_mode)?;
+
 
     Ok(())
 }

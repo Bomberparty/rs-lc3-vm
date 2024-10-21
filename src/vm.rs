@@ -13,7 +13,7 @@ impl VM {
     pub fn new() -> Self {
         VM {
             registers: [0; 8],
-            flag: 0,
+            flag: 0x2,
             memory: [0; 65536],
         }
     }
@@ -42,9 +42,14 @@ impl VM {
         Ok(())
     }
 
-    pub fn run(&mut self, buffer: &[u8]) -> io::Result<()> {
+    pub fn run(&mut self, buffer: &[u8], debug_mode: bool) -> io::Result<()> {
         let start_address = self.extract_start_address(buffer);
         let mut pc = start_address;
+        let mut exec_step: u64 = 0;
+
+        if debug_mode {
+            println!("---Starting execution from address 0x{:X} (decimal {})---", start_address, start_address);
+        }
 
         loop {
             if pc as usize >= self.memory.len() {
@@ -54,6 +59,30 @@ impl VM {
             let instruction = self.memory[pc as usize];
             let command = Command::from_u16(instruction);
             pc = (pc + 1) % u16::MAX;
+
+            if debug_mode {
+                println!("Execution step #{}", exec_step);
+                println!("Registers:");
+                for id in 0..self.registers.len() {
+                    println!(
+                        "R{}: 0x{:X} (decimal {})",
+                        id, self.registers[id], self.registers[id]
+                    );
+                }
+                println!(
+                    "Flag: 0x{:X} ({})",
+                    self.flag,
+                    match self.flag {
+                        0x1 => "FlPos",
+                        0x2 => "FlZro",
+                        0x4 => "FlNeg",
+                        _ => "undefined",
+                    }
+                );
+                println!("PC: {:X} (decimal {})", pc, pc);
+                println!("Command: {:?} (parsed from instruction 0x{:X} (decimal {}))", command, instruction, instruction);
+                println!("---Execution start---");
+            }
 
             match command {
                 Command::ADDImm { dr, sr1, imm5 } => {
@@ -152,7 +181,7 @@ impl VM {
                     TrapVector::PUTS => {
                         let slice = &self.memory[self.registers[Register::R0 as usize] as usize..];
                         let string = self.u16_slice_to_string(slice);
-                        println!("{}", string);
+                        print!("{}", string);
                     }
                     TrapVector::PUTSP => {
                         let slice = &self.memory[self.registers[Register::R0 as usize] as usize..];
@@ -165,6 +194,11 @@ impl VM {
                 },
                 _ => panic!("Wrong command used!"),
             }
+
+            if debug_mode {
+                println!("---Execution end---");
+            }
+            exec_step += 1;
         }
 
         Ok(())
