@@ -1,7 +1,16 @@
 [package]
 name = "rs-lc-3-vm"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
+description = "LC-3 Virtual Machine implementation in Rust"
+repository = "https://codeberg.org/brpxd/rs-lc3-vm"
+readme = "README.md"
 
 [dependencies]
-clap = { version = "4.5.20", features = ["cargo", "derive"] }
+clap = { version = "4.5", features = ["derive", "cargo"] }
+thiserror = "1.0"
+log = "0.4"
+pretty-hex = "0.3"
+
+[dev-dependencies]
+assert_matches = "1.5"
