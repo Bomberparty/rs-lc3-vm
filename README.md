@@ -14,5 +14,5 @@ To try this out, please install [rust toolkit](https://www.rust-lang.org/learn/g
 
 The command to install using cargo is:
 ```shell
-cargo install --git https://codeberg.org/brpxd/rs-lc3-vm --tag v0.2.2
+cargo install --git https://codeberg.org/brpxd/rs-lc3-vm --tag v0.2.3
 ```
